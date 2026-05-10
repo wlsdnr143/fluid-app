@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#006E9C">
+<title>Fluid & Blood Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #EEF3F7;
+  --surface: #fff;
+  --surface2: #F4F8FB;
+  --border: #C8D9E6;
+  --border2: #DDEAF3;
+  --text: #0D2D45;
+  --text2: #3D6080;
+  --text3: #8AAFC8;
+  --blue: #006E9C;
+  --blue-light: #E0F0FA;
+  --blue-mid: #0094CC;
+  --red: #C0392B;
+  --red-light: #FDECEA;
+  --red-mid: #E05C4E;
+  --green: #1A7A4A;
+  --green-light: #E6F5EE;
+  --teal: #0099AA;
+  --teal-light: #E0F5F8;
+  --tab-h: 64px;
+  --r: 14px;
+  --rsm: 9px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border2) 1px,transparent 1px),linear-gradient(90deg,var(--border2) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;z-index:0;opacity:.4;}
+
+/* ── Header ── */
+.header{background:var(--blue);padding:0 16px;flex-shrink:0;position:relative;z-index:10;}
+.header-inner{display:flex;align-items:center;padding:12px 0 10px;gap:10px;}
+.header-icon{width:28px;height:28px;background:rgba(255,255,255,.18);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.header-icon svg{width:16px;height:16px;}
+.header-text h1{font-size:15px;font-weight:600;color:#fff;}
+.header-text .sub{font-size:10px;color:rgba(255,255,255,.6);margin-top:1px;}
+
+/* ── Pages ── */
+.pages{flex:1;overflow:hidden;position:relative;z-index:1;}
+.page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px calc(var(--tab-h)+20px);display:none;}
+.page.active{display:block;}
+
+/* ══════════════════════════════
+   FLUID TAB — Setup Screen
+══════════════════════════════ */
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 8px rgba(0,80,140,.08);}
+
+.setup-section{padding:16px;}
+.setup-section+.setup-section{border-top:1px solid var(--border2);}
+
+.setup-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
+
+/* Volume selector */
+.vol-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.vol-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 8px;border-radius:var(--rsm);border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;}
+.vol-btn .vb-num{font-size:24px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--text2);}
+.vol-btn .vb-unit{font-size:11px;color:var(--text3);margin-top:2px;}
+.vol-btn.active{border-color:var(--blue);background:var(--blue-light);}
+.vol-btn.active .vb-num{color:var(--blue);}
+.vol-btn.active .vb-unit{color:var(--blue-mid);}
+.vol-btn:active{transform:scale(.97);}
+
+/* Loss input */
+.loss-row{display:flex;align-items:center;gap:10px;}
+.loss-row .loss-desc{flex:1;font-size:13px;color:var(--text2);line-height:1.5;}
+.loss-input-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.loss-input-wrap input{width:80px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-align:center;padding:9px 4px;outline:none;}
+.loss-input-wrap input:focus{border-color:var(--blue-mid);background:var(--blue-light);}
+.loss-input-wrap .unit{font-size:13px;color:var(--text2);}
+
+/* Effective amount preview */
+.effective-preview{background:var(--surface2);border-radius:var(--rsm);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;}
+.ep-label{font-size:12px;color:var(--text2);}
+.ep-val{font-size:22px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--blue);}
+.ep-unit{font-size:12px;color:var(--text3);margin-left:3px;}
+
+/* Start button */
+.start-btn{width:100%;padding:16px;background:var(--blue);color:#fff;border:none;border-radius:0;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:-.2px;}
+.start-btn:active{background:#005580;}
+
+/* ══════════════════════════════
+   FLUID TAB — Active Screen
+══════════════════════════════ */
+
+/* Status bar (locked info) */
+.status-bar{background:var(--blue);padding:10px 14px;display:flex;gap:0;flex-shrink:0;border-radius:var(--r) var(--r) 0 0;overflow:hidden;}
+.sb-item{flex:1;text-align:center;}
+.sb-item+.sb-item{border-left:1px solid rgba(255,255,255,.2);}
+.sb-item .sl{font-size:9px;font-weight:600;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.sb-item .sv{font-size:15px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:#fff;}
+.sb-item .su{font-size:10px;color:rgba(255,255,255,.6);margin-left:1px;}
+
+/* Active card wrapper */
+.active-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 2px 8px rgba(0,80,140,.08);margin-bottom:12px;}
+.active-card .status-bar{border-radius:0;}
+
+/* Hour entry area */
+.hour-entry-area{padding:14px;}
+.hea-row{display:flex;align-items:center;gap:10px;}
+.hea-badge{background:var(--blue-light);color:var(--blue);font-size:13px;font-weight:600;font-family:'IBM Plex Mono',monospace;padding:6px 12px;border-radius:20px;white-space:nowrap;}
+.hea-input-wrap{flex:1;display:flex;align-items:center;gap:6px;}
+.hea-input-wrap input{flex:1;min-width:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-align:center;padding:9px 4px;outline:none;}
+.hea-input-wrap input:focus{border-color:var(--blue-mid);background:var(--blue-light);}
+.hea-input-wrap .unit{font-size:13px;color:var(--text2);white-space:nowrap;}
+.rec-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--rsm);padding:11px 16px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.rec-btn:active{background:#005580;transform:scale(.97);}
+
+/* Log table */
+.log-section{border-top:1px solid var(--border2);}
+.log-head{display:grid;grid-template-columns:40px 1fr 1fr 1fr;padding:7px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.log-head span{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:center;}
+.log-head span:first-child{text-align:left;}
+.log-row{display:grid;grid-template-columns:40px 1fr 1fr 1fr;padding:11px 14px;border-bottom:1px solid var(--border2);align-items:center;}
+.log-row:last-child{border-bottom:none;}
+.log-row.latest{background:var(--blue-light);}
+.log-cell{font-size:14px;font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--text);text-align:center;}
+.log-cell:first-child{font-size:11px;color:var(--text3);font-weight:600;text-align:left;}
+.log-cell.hi{color:var(--blue);font-weight:600;}
+.log-empty{padding:24px;text-align:center;font-size:13px;color:var(--text3);}
+.edit-btn{font-size:11px;font-weight:600;font-family:'IBM Plex Sans KR',sans-serif;padding:4px 9px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;white-space:nowrap;}
+.edit-btn:active{background:var(--blue-light);border-color:var(--blue-mid);color:var(--blue);}
+.log-row.editing{background:#FFF8E6 !important;border-left:3px solid var(--amber);}
+.edit-inline{display:flex;align-items:center;gap:4px;justify-content:flex-end;}
+.edit-inline input{width:62px;background:var(--surface);border:1.5px solid var(--amber);border-radius:6px;color:var(--text);font-size:14px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-align:center;padding:3px 2px;outline:none;}
+.save-edit-btn{font-size:11px;font-weight:600;font-family:'IBM Plex Sans KR',sans-serif;padding:4px 9px;border-radius:12px;border:none;background:var(--blue);color:#fff;cursor:pointer;white-space:nowrap;}
+.save-edit-btn:active{background:#005580;}
+@keyframes popIn{from{opacity:0;transform:scale(.82);}to{opacity:1;transform:scale(1);}}
+
+/* Summary row */
+.summary-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);}
+.sum-cell{padding:12px 14px;text-align:center;}
+.sum-cell+.sum-cell{border-left:1px solid var(--border2);}
+.sum-cell .sc-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.sum-cell .sc-val{font-size:22px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--text);}
+.sum-cell .sc-unit{font-size:11px;color:var(--text3);margin-left:2px;}
+.sum-cell.blue .sc-val{color:var(--blue);}
+.sum-cell.green .sc-val{color:var(--green);}
+
+/* Finish button */
+.finish-btn{width:100%;padding:14px;background:var(--surface);color:var(--red);border:none;border-top:1px solid var(--border);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:-.2px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.finish-btn svg{width:15px;height:15px;flex-shrink:0;}
+.finish-btn:active{background:var(--red-light);}
+
+/* ══════════════════════════════
+   BLOOD TAB
+══════════════════════════════ */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px;}
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px;}
+.section-title::before{content:'';width:3px;height:14px;border-radius:2px;display:inline-block;}
+.blood-title::before{background:var(--red-mid);}
+.section-sum{font-size:12px;color:var(--text3);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;font-family:'IBM Plex Mono',monospace;}
+.badge-red{background:var(--red-light);color:var(--red);}
+.add-btn{display:flex;align-items:center;gap:5px;background:var(--surface);border:1.5px solid var(--border);color:var(--text2);font-size:13px;font-weight:500;font-family:inherit;padding:7px 14px;border-radius:20px;cursor:pointer;min-height:36px;}
+.add-btn:active{background:var(--red-light);border-color:var(--red-mid);color:var(--red);}
+.add-btn svg{width:13px;height:13px;flex-shrink:0;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;animation:slideIn .18s ease;box-shadow:0 1px 4px rgba(0,80,140,.06);}
+.card.blood-card{border-left:3px solid var(--red-mid);}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.card-num{width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Mono',monospace;background:var(--red-light);color:var(--red);}
+.name-input{flex:1;background:transparent;border:none;border-bottom:1.5px solid var(--border);color:var(--text);font-size:14px;font-weight:500;font-family:inherit;padding:3px 0;outline:none;}
+.name-input::placeholder{color:var(--text3);}
+.name-input:focus{border-bottom-color:var(--blue-mid);}
+.del-btn-c{width:28px;height:28px;background:transparent;border:1px solid var(--border);border-radius:50%;color:var(--text3);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.del-btn-c:active{background:var(--red-light);color:var(--red);border-color:var(--red-mid);}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.field input{background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--rsm);color:var(--text);font-size:16px;font-family:'IBM Plex Mono',monospace;padding:9px 12px;outline:none;width:100%;}
+.field input::placeholder{color:var(--text3);font-size:14px;}
+.field input:focus{border-color:var(--blue-mid);background:var(--blue-light);}
+.empty-msg{text-align:center;color:var(--text3);font-size:13px;padding:36px 0 16px;line-height:1.9;}
+
+/* ══════════════════════════════
+   RESULT TAB
+══════════════════════════════ */
+.r-sec-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;padding:4px 2px 8px;display:flex;align-items:center;gap:8px;}
+.r-sec-title::before{content:'';width:3px;height:13px;border-radius:2px;display:inline-block;}
+.fluid-rtitle::before{background:var(--blue);}
+.blood-rtitle::before{background:var(--red-mid);}
+.result-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 1px 4px rgba(0,80,140,.07);margin-bottom:10px;}
+.result-block-head{padding:10px 14px;background:var(--blue-light);border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px;}
+.result-block-head.blood-h{background:var(--red-light);}
+.rbh-title{font-size:14px;font-weight:600;color:var(--blue);}
+.rbh-title.red{color:var(--red);}
+.rbh-meta{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;}
+.r-log-head{display:grid;grid-template-columns:40px 1fr 1fr 1fr;padding:6px 14px;background:var(--surface2);border-bottom:1px solid var(--border2);}
+.r-log-head span{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;text-align:center;}
+.r-log-head span:first-child{text-align:left;}
+.r-log-row{display:grid;grid-template-columns:40px 1fr 1fr 1fr;padding:9px 14px;border-bottom:1px solid var(--border2);}
+.r-log-row:last-child{border-bottom:none;}
+.r-log-cell{font-size:13px;font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--text);text-align:center;}
+.r-log-cell:first-child{text-align:left;font-size:11px;color:var(--text3);font-weight:600;}
+.r-log-cell.hi{color:var(--blue);font-weight:600;}
+.blood-r-row{display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border2);}
+.blood-r-row:last-child{border-bottom:none;}
+.blood-r-name{font-size:13px;color:var(--text);}
+.blood-r-val{font-size:13px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--red);}
+.result-empty{text-align:center;padding:52px 24px;color:var(--text3);font-size:14px;line-height:2;}
+
+/* ── Bottom Tab Bar ── */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;height:var(--tab-h);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom,0px);}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:transparent;font-family:inherit;padding:8px 0 4px;position:relative;}
+.tab:active{background:var(--surface2);}
+.tab-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;}
+.tab-icon svg{width:22px;height:22px;stroke:var(--text3);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.tab-label{font-size:11px;font-weight:500;color:var(--text3);}
+.tab-dot{position:absolute;top:7px;right:calc(50% - 19px);width:7px;height:7px;border-radius:50%;display:none;border:1.5px solid var(--surface);}
+.tab[data-tab="fluid"].active .tab-icon{background:var(--blue-light);}
+.tab[data-tab="fluid"].active .tab-icon svg{stroke:var(--blue);}
+.tab[data-tab="fluid"].active .tab-label{color:var(--blue);font-weight:600;}
+.tab[data-tab="blood"].active .tab-icon{background:var(--red-light);}
+.tab[data-tab="blood"].active .tab-icon svg{stroke:var(--red);}
+.tab[data-tab="blood"].active .tab-label{color:var(--red);font-weight:600;}
+.tab[data-tab="result"].active .tab-icon{background:var(--teal-light);}
+.tab[data-tab="result"].active .tab-icon svg{stroke:var(--teal);}
+.tab[data-tab="result"].active .tab-label{color:var(--teal);font-weight:600;}
+.tab[data-tab="fluid"].has-items .tab-dot{display:block;background:var(--blue);}
+.tab[data-tab="blood"].has-items .tab-dot{display:block;background:var(--red-mid);}
+.tab[data-tab="result"].has-items .tab-dot{display:block;background:var(--teal);}
+
+/* Surgery active indicator on fluid tab */
+.tab[data-tab="fluid"].surgery-on .tab-dot{display:block;background:var(--green);}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-icon">
+      <svg viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round">
+        <rect x="2" y="2" width="14" height="14" rx="3"/>
+        <line x1="9" y1="5.5" x2="9" y2="12.5"/>
+        <line x1="5.5" y1="9" x2="12.5" y2="9"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>Fluid &amp; Blood Tracker</h1>
+      <div class="sub">시간당 투여량 계산기</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pages -->
+<div class="pages">
+
+  <!-- ① Fluid Tab -->
+  <div class="page active" id="page-fluid">
+
+    <!-- SETUP SCREEN -->
+    <div id="fluid-setup">
+      <div class="setup-card">
+
+        <!-- Surgery Name -->
+        <div class="setup-section">
+          <div class="setup-label">수술 이름</div>
+          <input type="text" id="setup-name" placeholder="예) Case 1, Lt. knee arthroscopy…" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:15px;font-family:inherit;padding:11px 14px;outline:none;" onfocus="this.style.borderColor='var(--blue-mid)';this.style.background='var(--blue-light)'" onblur="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'">
+        </div>
+
+        <!-- Volume -->
+        <div class="setup-section">
+          <div class="setup-label">Fluid 총량 선택</div>
+          <div class="vol-grid">
+            <button class="vol-btn active" data-vol="1000" onclick="setVol(1000)">
+              <span class="vb-num">1000</span>
+              <span class="vb-unit">ml</span>
+            </button>
+            <button class="vol-btn" data-vol="500" onclick="setVol(500)">
+              <span class="vb-num">500</span>
+              <span class="vb-unit">ml</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Loss -->
+        <div class="setup-section">
+          <div class="setup-label">Loss량</div>
+          <div class="loss-row">
+            <span class="loss-desc">수술 전 이미 손실된<br>Fluid 양을 입력하세요</span>
+            <div class="loss-input-wrap">
+              <input type="number" id="setup-loss" placeholder="0" min="0" inputmode="decimal" oninput="updatePreview()">
+              <span class="unit">ml</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Effective preview -->
+        <div class="setup-section" style="padding-top:12px;padding-bottom:12px;">
+          <div class="effective-preview">
+            <span class="ep-label">실제 투여 시작량</span>
+            <div><span class="ep-val" id="ep-val">1000</span><span class="ep-unit">ml</span></div>
+          </div>
+        </div>
+
+        <!-- Start button -->
+        <button class="start-btn" onclick="startSurgery()">수술 준비 완료</button>
+      </div>
+    </div>
+
+    <!-- ACTIVE SCREEN -->
+    <div id="fluid-active" style="display:none;">
+      <div class="active-card">
+
+        <!-- Locked status bar -->
+        <div class="status-bar">
+          <div class="sb-item">
+            <div class="sl">총량</div>
+            <div class="sv" id="act-vol">—<span class="su">ml</span></div>
+          </div>
+          <div class="sb-item">
+            <div class="sl">Loss</div>
+            <div class="sv" id="act-loss">0<span class="su">ml</span></div>
+          </div>
+          <div class="sb-item">
+            <div class="sl">시작량</div>
+            <div class="sv" id="act-start">—<span class="su">ml</span></div>
+          </div>
+        </div>
+
+        <!-- Hour entry -->
+        <div class="hour-entry-area">
+          <div class="hea-row">
+            <span class="hea-badge" id="next-hour-badge">1시간 후</span>
+            <div class="hea-input-wrap">
+              <input type="number" id="remain-input" placeholder="남은 ml" min="0" inputmode="decimal">
+              <span class="unit">ml</span>
+            </div>
+            <button class="rec-btn" onclick="recordHour()">기록</button>
+          </div>
+        </div>
+
+        <!-- Log table -->
+        <div class="log-section">
+          <div class="log-head">
+            <span>시간</span><span>남은 양</span><span>사용량</span><span>누적/수정</span>
+          </div>
+          <div id="hour-log">
+            <div class="log-empty">기록이 없습니다</div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-row">
+          <div class="sum-cell blue">
+            <div class="sc-label">총 사용량</div>
+            <div class="sc-val" id="sum-used">0<span class="sc-unit">ml</span></div>
+          </div>
+          <div class="sum-cell">
+            <div class="sc-label">현재 남은 양</div>
+            <div class="sc-val" id="sum-remain">—<span class="sc-unit">ml</span></div>
+          </div>
+        </div>
+
+        <!-- Finish -->
+        <button class="finish-btn" onclick="finishSurgery()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          수술 종료 &amp; 기록 저장
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /page-fluid -->
+
+  <!-- ② Blood Tab -->
+  <div class="page" id="page-blood">
+
+    <!-- SETUP SCREEN -->
+    <div id="blood-setup">
+      <div class="setup-card">
+        <div class="setup-section">
+          <div class="setup-label">수술 이름</div>
+          <input type="text" id="blood-setup-name" placeholder="예) Case 1, Lt. knee arthroscopy…" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:15px;font-family:inherit;padding:11px 14px;outline:none;" onfocus="this.style.borderColor='var(--red-mid)';this.style.background='var(--red-light)'" onblur="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'">
+        </div>
+        <div class="setup-section" style="padding:14px 16px 18px;">
+          <p style="font-size:13px;color:var(--text2);line-height:1.7;">수술 중 투여한 Blood 제제를<br>항목별로 입력하면 자동으로 합산됩니다.</p>
+        </div>
+        <button class="start-btn" style="background:var(--red-mid);" onclick="startBlood()">수술 준비 완료</button>
+      </div>
+    </div>
+
+    <!-- ACTIVE SCREEN -->
+    <div id="blood-active" style="display:none;">
+      <div class="active-card">
+
+        <!-- Locked status bar -->
+        <div class="status-bar" style="background:var(--red-mid);">
+          <div class="sb-item">
+            <div class="sl">수술명</div>
+            <div class="sv" id="blood-act-name" style="font-size:13px;">—</div>
+          </div>
+          <div class="sb-item">
+            <div class="sl">기록 수</div>
+            <div class="sv" id="blood-act-count">0<span class="su">hr</span></div>
+          </div>
+          <div class="sb-item">
+            <div class="sl">총 투여량</div>
+            <div class="sv" id="blood-act-total">0<span class="su">ml</span></div>
+          </div>
+        </div>
+
+        <!-- Hour entry -->
+        <div class="hour-entry-area">
+          <div class="hea-row">
+            <span class="hea-badge" id="blood-next-hour-badge" style="background:var(--red-light);color:var(--red);">1시간 후</span>
+            <div class="hea-input-wrap">
+              <input type="number" id="blood-vol-input" placeholder="투여량" min="0" inputmode="decimal">
+              <span class="unit">ml</span>
+            </div>
+            <button class="rec-btn" style="background:var(--red-mid);" onclick="recordBlood()">기록</button>
+          </div>
+        </div>
+
+        <!-- Log table -->
+        <div class="log-section">
+          <div class="log-head">
+            <span>시간</span><span>투여량</span><span>누적</span><span></span>
+          </div>
+          <div id="blood-log">
+            <div class="log-empty">기록이 없습니다</div>
+          </div>
+        </div>
+
+        <!-- Total summary -->
+        <div class="summary-row" style="grid-template-columns:1fr;">
+          <div class="sum-cell" style="border-left:none;">
+            <div class="sc-label">총 투여량</div>
+            <div class="sc-val" id="blood-sum-val" style="color:var(--red-mid);">0<span class="sc-unit">ml</span></div>
+          </div>
+        </div>
+
+        <!-- Finish -->
+        <button class="finish-btn" style="color:var(--red);" onclick="finishBlood()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          수술 종료 &amp; 기록 저장
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /page-blood -->
+
+  <!-- ③ Result Tab -->
+  <div class="page" id="page-result">
+
+    <!-- Sub-tab bar -->
+    <div style="display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,80,140,.06);">
+      <button id="rtab-fluid" onclick="switchResultTab('fluid')"
+        style="flex:1;padding:11px 8px;font-size:13px;font-weight:600;font-family:inherit;border:none;background:var(--blue-light);color:var(--blue);cursor:pointer;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 3 L17 11 Q20 16 20 19 A8 8 0 0 1 4 19 Q4 16 7 11 Z"/>
+        </svg>
+        Fluid 기록
+      </button>
+      <button id="rtab-blood" onclick="switchResultTab('blood')"
+        style="flex:1;padding:11px 8px;font-size:13px;font-weight:600;font-family:inherit;border:none;background:var(--surface2);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 4 C12 4 5 13 5 18 A7 7 0 0 0 19 18 C19 13 12 4 12 4Z"/>
+        </svg>
+        Blood 기록
+      </button>
+    </div>
+
+    <!-- Fluid result panel -->
+    <div id="result-fluid-panel">
+      <div id="result-fluid-empty" class="result-empty">저장된 Fluid 기록이 없습니다</div>
+      <div id="result-fluid-content"></div>
+    </div>
+
+    <!-- Blood result panel -->
+    <div id="result-blood-panel" style="display:none;">
+      <div id="result-blood-empty" class="result-empty">저장된 Blood 기록이 없습니다</div>
+      <div id="result-blood-content"></div>
+    </div>
+
+  </div>
+
+</div><!-- /pages -->
+
+<!-- Bottom Tab Bar -->
+<div class="tab-bar">
+  <button class="tab active" data-tab="fluid" onclick="switchTab('fluid')">
+    <span class="tab-dot"></span>
+    <div class="tab-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 3 L17 11 Q20 16 20 19 A8 8 0 0 1 4 19 Q4 16 7 11 Z"/>
+        <line x1="12" y1="14" x2="12" y2="19"/>
+        <line x1="9.5" y1="17" x2="14.5" y2="17"/>
+      </svg>
+    </div>
+    <span class="tab-label">Fluid</span>
+  </button>
+  <button class="tab" data-tab="blood" onclick="switchTab('blood')">
+    <span class="tab-dot"></span>
+    <div class="tab-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 4 C12 4 5 13 5 18 A7 7 0 0 0 19 18 C19 13 12 4 12 4Z"/>
+      </svg>
+    </div>
+    <span class="tab-label">Blood</span>
+  </button>
+  <button class="tab" data-tab="result" onclick="switchTab('result')">
+    <span class="tab-dot"></span>
+    <div class="tab-icon">
+      <svg viewBox="0 0 24 24">
+        <rect x="4" y="3" width="16" height="18" rx="3"/>
+        <line x1="8" y1="9"  x2="16" y2="9"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="12" y2="17"/>
+      </svg>
+    </div>
+    <span class="tab-label">결과</span>
+  </button>
+</div>
+
+<script>
+// State
+let surgery = {
+  active: false,
+  vol: 1000,
+  loss: 0,
+  startAmount: 1000,
+  logs: []   // [{hour, remain, used, cumUsed}]
+};
+
+let resultRecords = [];
+let bid = 0;
+
+// Tab
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector('.tab[data-tab="' + name + '"]').classList.add('active');
+  document.getElementById('page-' + name).classList.add('active');
+}
+
+// Setup Screen
+function setVol(v) {
+  surgery.vol = v;
+  document.querySelectorAll('.vol-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.vol) === v);
+  });
+  updatePreview();
+}
+
+function updatePreview() {
+  const loss = parseFloat(document.getElementById('setup-loss').value) || 0;
+  const effective = surgery.vol - loss;
+  document.getElementById('ep-val').textContent = Math.max(0, effective);
+}
+
+function startSurgery() {
+  const loss = parseFloat(document.getElementById('setup-loss').value) || 0;
+  if (loss >= surgery.vol) {
+    showToast('Loss량이 총량 이상일 수 없습니다.');
+    return;
+  }
+  surgery.name = document.getElementById('setup-name').value.trim() || '수술';
+  surgery.loss = loss;
+  surgery.startAmount = surgery.vol - loss;
+  surgery.logs = [];
+  surgery.active = true;
+
+  // Update active screen header
+  document.getElementById('act-vol').innerHTML   = surgery.vol + '<span class="su">ml</span>';
+  document.getElementById('act-loss').innerHTML  = surgery.loss + '<span class="su">ml</span>';
+  document.getElementById('act-start').innerHTML = surgery.startAmount + '<span class="su">ml</span>';
+
+  renderLog();
+  updateSummaryUI();
+  updateNextHourBadge();
+
+  document.getElementById('fluid-setup').style.display  = 'none';
+  document.getElementById('fluid-active').style.display = '';
+
+  // Tab indicator: surgery active (green dot)
+  document.querySelector('.tab[data-tab="fluid"]').classList.add('surgery-on');
+}
+
+// Active Surgery
+function updateNextHourBadge() {
+  const next = surgery.logs.length + 1;
+  document.getElementById('next-hour-badge').textContent = next + '시간 후';
+}
+
+function recordHour() {
+  const input = document.getElementById('remain-input');
+  const val = input.value;
+  if (val === '' || isNaN(parseFloat(val)) || parseFloat(val) < 0) {
+    showToast('남은 양을 올바르게 입력해 주세요.');
+    input.focus();
+    return;
+  }
+  const remain = parseFloat(val);
+  if (remain > surgery.startAmount) {
+    showToast('남은 양은 시작량(' + surgery.startAmount + 'ml)을 초과할 수 없습니다.');
+    input.focus();
+    return;
+  }
+  const prevRemain = surgery.logs.length > 0
+    ? surgery.logs[surgery.logs.length - 1].remain
+    : surgery.startAmount;
+  if (remain > prevRemain) {
+    showToast('이전 시간 남은 양(' + prevRemain + 'ml)보다 클 수 없습니다.');
+    input.focus();
+    return;
+  }
+
+  const hour = surgery.logs.length + 1;
+  const used    = Math.max(0, prevRemain - remain);
+  const cumUsed = (surgery.logs.length > 0 ? surgery.logs[surgery.logs.length - 1].cumUsed : 0) + used;
+
+  surgery.logs.push({ hour, remain, used, cumUsed });
+  input.value = '';
+  input.focus();
+
+  renderLog();
+  updateSummaryUI();
+  updateNextHourBadge();
+}
+
+function recalcFromIndex(idx) {
+  for (let i = idx; i < surgery.logs.length; i++) {
+    const prevRemain = i === 0 ? surgery.startAmount : surgery.logs[i - 1].remain;
+    surgery.logs[i].used    = Math.max(0, prevRemain - surgery.logs[i].remain);
+    surgery.logs[i].cumUsed = (i === 0 ? 0 : surgery.logs[i - 1].cumUsed) + surgery.logs[i].used;
+  }
+}
+
+function editHour(idx) {
+  // cancel any existing edit first
+  const existingEdit = document.querySelector('.log-row.editing');
+  if (existingEdit) {
+    renderLog();
+  }
+  const row = document.querySelectorAll('#hour-log .log-row')[idx];
+  if (!row) return;
+  row.classList.add('editing');
+  const log = surgery.logs[idx];
+  // replace last cell with inline edit
+  const cells = row.querySelectorAll('.log-cell');
+  cells[1].innerHTML = '<div class="edit-inline"><input id="edit-input-' + idx + '" type="number" value="' + Math.round(log.remain) + '" min="0" max="' + surgery.startAmount + '" inputmode="decimal"><span style="font-size:11px;color:var(--text2)">ml</span></div>';
+  cells[2].textContent = '';
+  cells[3].innerHTML = '<button class="save-edit-btn" onclick="saveEdit(' + idx + ')">저장</button>';
+  const inp = document.getElementById('edit-input-' + idx);
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function saveEdit(idx) {
+  const inp = document.getElementById('edit-input-' + idx);
+  if (!inp) return;
+  const val = parseFloat(inp.value);
+  if (isNaN(val) || val < 0) { showToast('올바른 값을 입력해 주세요.'); inp.focus(); return; }
+  if (val > surgery.startAmount) { showToast('남은 양은 시작량(' + surgery.startAmount + 'ml)을 초과할 수 없습니다.'); inp.focus(); return; }
+
+  // 이전 시간보다 클 수 없음
+  const prevRemain = idx === 0 ? surgery.startAmount : surgery.logs[idx - 1].remain;
+  if (val > prevRemain) { showToast('이전 시간 남은 양(' + prevRemain + 'ml)보다 클 수 없습니다.'); inp.focus(); return; }
+
+  // 다음 시간보다 작을 수 없음 (다음 항목이 있는 경우)
+  if (idx < surgery.logs.length - 1 && val < surgery.logs[idx + 1].remain) {
+    showToast('다음 시간 남은 양(' + surgery.logs[idx + 1].remain + 'ml)보다 작을 수 없습니다.'); inp.focus(); return;
+  }
+
+  surgery.logs[idx].remain = val;
+  recalcFromIndex(idx);
+  renderLog();
+  updateSummaryUI();
+}
+
+function renderLog() {
+  const container = document.getElementById('hour-log');
+  if (surgery.logs.length === 0) {
+    container.innerHTML = '<div class="log-empty">기록이 없습니다</div>';
+    return;
+  }
+  container.innerHTML = surgery.logs.map((row, i) => {
+    const isLatest = i === surgery.logs.length - 1;
+    return '<div class="log-row' + (isLatest ? ' latest' : '') + '">' +
+      '<span class="log-cell">' + row.hour + 'hr</span>' +
+      '<span class="log-cell">' + Math.round(row.remain) + ' ml</span>' +
+      '<span class="log-cell hi">' + Math.round(row.used) + ' ml</span>' +
+      '<span class="log-cell" style="text-align:right;">' +
+        '<button class="edit-btn" onclick="editHour(' + i + ')">수정</button>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function updateSummaryUI() {
+  const last = surgery.logs.length > 0 ? surgery.logs[surgery.logs.length - 1] : null;
+  const used   = last ? Math.round(last.cumUsed) : 0;
+  const remain = last ? Math.round(last.remain)  : surgery.startAmount;
+  document.getElementById('sum-used').innerHTML   = used   + '<span class="sc-unit">ml</span>';
+  document.getElementById('sum-remain').innerHTML = remain + '<span class="sc-unit">ml</span>';
+}
+
+function finishSurgery() {
+  showConfirm(
+    surgery.logs.length === 0
+      ? '기록이 없습니다.\n그래도 수술을 종료할까요?'
+      : '수술을 종료하고\n기록을 저장할까요?',
+    doFinish
+  );
+}
+
+function doFinish() {
+  // Save to results
+  if (surgery.logs.length > 0) {
+    const now = new Date();
+    const savedAt = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + '.' + String(now.getDate()).padStart(2,'0') + ' ' + now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    resultRecords.push({
+      type: 'fluid',
+      name: surgery.name,
+      vol: surgery.vol,
+      loss: surgery.loss,
+      startAmount: surgery.startAmount,
+      logs: surgery.logs.slice(),
+      savedAt: savedAt
+    });
+    renderResultPage();
+    document.querySelector('.tab[data-tab="result"]').classList.add('has-items');
+  }
+
+  // Reset fluid state
+  surgery = { active: false, vol: 1000, loss: 0, startAmount: 1000, logs: [], name: '' };
+  document.getElementById('setup-loss').value = '';
+  document.getElementById('setup-name').value = '';
+  document.querySelectorAll('.vol-btn').forEach(b => b.classList.toggle('active', b.dataset.vol === '1000'));
+  updatePreview();
+
+  document.getElementById('fluid-active').style.display = 'none';
+  document.getElementById('fluid-setup').style.display  = '';
+  document.querySelector('.tab[data-tab="fluid"]').classList.remove('surgery-on');
+
+  showCompletionPopup();
+}
+
+function showCompletionPopup() {
+  const el = document.createElement('div');
+  el.style.cssText = [
+    'position:fixed',
+    'inset:0',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'z-index:9999',
+    'pointer-events:none',
+    'padding:32px'
+  ].join(';');
+
+  el.innerHTML =
+    '<div style="' + [
+      'background:#fff',
+      'border-radius:20px',
+      'padding:28px 28px 24px',
+      'text-align:center',
+      'max-width:280px',
+      'width:100%',
+      'box-shadow:0 8px 32px rgba(0,0,0,.18)',
+      'animation:popIn .25s cubic-bezier(.34,1.56,.64,1)',
+      'pointer-events:auto'
+    ].join(';') + '">' +
+      '<div style="width:52px;height:52px;border-radius:50%;background:#E6F5EE;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A7A4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,12 9,17 20,6"/></svg>' +
+      '</div>' +
+      '<p style="font-size:16px;font-weight:600;color:#0D2D45;margin-bottom:8px;">기록이 저장되었습니다</p>' +
+      '<p style="font-size:14px;color:#3D6080;line-height:1.6;">수술 고생 많았어 영주!</p>' +
+    '</div>';
+
+  document.body.appendChild(el);
+
+  // auto-dismiss after 2.4s with fade out
+  setTimeout(() => {
+    el.style.transition = 'opacity .35s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 380);
+  }, 2400);
+}
+
+
+function showConfirm(msg, onOk) {
+  // Remove existing
+  const old = document.getElementById('custom-confirm');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'custom-confirm';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:14px;width:100%;max-width:320px;overflow:hidden;">' +
+      '<div style="padding:20px 20px 16px;text-align:center;">' +
+        '<p style="font-size:15px;font-weight:500;color:#0D2D45;line-height:1.6;white-space:pre-line;">' + msg + '</p>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #C8D9E6;">' +
+        '<button id="cc-cancel" style="padding:14px;font-size:15px;font-family:inherit;background:#fff;border:none;border-right:1px solid #C8D9E6;color:#3D6080;cursor:pointer;">취소</button>' +
+        '<button id="cc-ok"     style="padding:14px;font-size:15px;font-weight:600;font-family:inherit;background:#fff;border:none;color:#006E9C;cursor:pointer;">확인</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('cc-cancel').onclick = () => overlay.remove();
+  document.getElementById('cc-ok').onclick = () => { overlay.remove(); onOk(); };
+}
+
+// Result Page
+let currentResultTab = 'fluid';
+
+function switchResultTab(name) {
+  currentResultTab = name;
+  const isFluid = name === 'fluid';
+
+  document.getElementById('result-fluid-panel').style.display = isFluid ? '' : 'none';
+  document.getElementById('result-blood-panel').style.display = isFluid ? 'none' : '';
+
+  const fluidBtn = document.getElementById('rtab-fluid');
+  const bloodBtn = document.getElementById('rtab-blood');
+
+  fluidBtn.style.background = isFluid ? 'var(--blue-light)' : 'var(--surface2)';
+  fluidBtn.style.color      = isFluid ? 'var(--blue)'       : 'var(--text3)';
+  bloodBtn.style.background = isFluid ? 'var(--surface2)'   : 'var(--red-light)';
+  bloodBtn.style.color      = isFluid ? 'var(--text3)'      : 'var(--red)';
+}
+
+function renderResultPage() {
+  const fluidRecs = resultRecords.filter(r => r.type === 'fluid');
+  const bloodRecs = resultRecords.filter(r => r.type === 'blood');
+
+  // Fluid panel
+  const fluidEmpty   = document.getElementById('result-fluid-empty');
+  const fluidContent = document.getElementById('result-fluid-content');
+  if (fluidRecs.length === 0) {
+    fluidEmpty.style.display = '';
+    fluidContent.innerHTML = '';
+  } else {
+    fluidEmpty.style.display = 'none';
+    let html = '';
+    fluidRecs.forEach((rec, idx) => {
+      const totalUsed = rec.logs.length > 0 ? Math.round(rec.logs[rec.logs.length - 1].cumUsed) : 0;
+      html += '<div class="result-block">';
+      html += '<div class="result-block-head">';
+      html +=   '<div class="rbh-title">' + (rec.name || ('수술 #' + (idx + 1))) + '</div>';
+      html +=   '<div class="rbh-meta">' + rec.savedAt + '  |  총량 ' + rec.vol + 'ml  |  Loss ' + rec.loss + 'ml  |  총 사용 ' + totalUsed + 'ml</div>';
+      html += '</div>';
+      html += '<div class="r-log-head"><span>시간</span><span>남은 양</span><span>사용량</span><span>누적 사용</span></div>';
+      rec.logs.forEach(row => {
+        html += '<div class="r-log-row">';
+        html +=   '<span class="r-log-cell">' + row.hour + 'hr</span>';
+        html +=   '<span class="r-log-cell">' + Math.round(row.remain) + ' ml</span>';
+        html +=   '<span class="r-log-cell hi">' + Math.round(row.used) + ' ml</span>';
+        html +=   '<span class="r-log-cell">' + Math.round(row.cumUsed) + ' ml</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    fluidContent.innerHTML = html;
+  }
+
+  // Blood panel
+  const bloodEmpty   = document.getElementById('result-blood-empty');
+  const bloodContent = document.getElementById('result-blood-content');
+  if (bloodRecs.length === 0) {
+    bloodEmpty.style.display = '';
+    bloodContent.innerHTML = '';
+  } else {
+    bloodEmpty.style.display = 'none';
+    let html = '';
+    bloodRecs.forEach(rec => {
+      html += '<div class="result-block">';
+      html += '<div class="result-block-head blood-h">';
+      html +=   '<div class="rbh-title red">' + (rec.name || '수술') + '</div>';
+      html +=   '<div class="rbh-meta">' + rec.savedAt + '  |  총 투여량 ' + rec.total + 'ml</div>';
+      html += '</div>';
+      html += '<div class="r-log-head"><span>시간</span><span>투여량</span><span>누적</span><span></span></div>';
+      rec.logs.forEach(row => {
+        html += '<div class="r-log-row">';
+        html +=   '<span class="r-log-cell">' + row.hour + 'hr</span>';
+        html +=   '<span class="r-log-cell hi" style="color:var(--red-mid);">' + Math.round(row.vol) + ' ml</span>';
+        html +=   '<span class="r-log-cell">' + Math.round(row.cumVol) + ' ml</span>';
+        html +=   '<span class="r-log-cell"></span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    bloodContent.innerHTML = html;
+  }
+}
+
+// Blood
+let blood = { active: false, name: '', logs: [] };
+
+function startBlood() {
+  blood.name = document.getElementById('blood-setup-name').value.trim() || '수술';
+  blood.logs = [];
+  blood.active = true;
+
+  document.getElementById('blood-act-name').textContent = blood.name;
+  document.getElementById('blood-act-count').innerHTML  = '0<span class="su">hr</span>';
+  document.getElementById('blood-act-total').innerHTML  = '0<span class="su">ml</span>';
+  document.getElementById('blood-sum-val').innerHTML    = '0<span class="sc-unit">ml</span>';
+  document.getElementById('blood-log').innerHTML = '<div class="log-empty">기록이 없습니다</div>';
+
+  document.getElementById('blood-setup').style.display  = 'none';
+  document.getElementById('blood-active').style.display = '';
+  document.querySelector('.tab[data-tab="blood"]').classList.add('surgery-on');
+  updateBloodNextHourBadge();
+}
+
+function updateBloodNextHourBadge() {
+  const next = blood.logs.length + 1;
+  document.getElementById('blood-next-hour-badge').textContent = next + '시간 후';
+}
+
+function recordBlood() {
+  const volEl = document.getElementById('blood-vol-input');
+  const vol   = parseFloat(volEl.value);
+  if (!vol || vol <= 0) { showToast('투여량을 올바르게 입력해 주세요.'); volEl.focus(); return; }
+
+  const hour   = blood.logs.length + 1;
+  const cumVol = (blood.logs.length > 0 ? blood.logs[blood.logs.length - 1].cumVol : 0) + vol;
+  blood.logs.push({ hour, vol, cumVol });
+
+  volEl.value = '';
+  volEl.focus();
+
+  renderBloodLog();
+  updateBloodStatus();
+  updateBloodNextHourBadge();
+}
+
+function renderBloodLog() {
+  const container = document.getElementById('blood-log');
+  if (blood.logs.length === 0) {
+    container.innerHTML = '<div class="log-empty">기록이 없습니다</div>';
+    return;
+  }
+  container.innerHTML = blood.logs.map((row, i) => {
+    const isLatest = i === blood.logs.length - 1;
+    return '<div class="log-row' + (isLatest ? ' latest' : '') + '" style="border-left:' + (isLatest ? '3px solid var(--red-mid)' : 'none') + ';">' +
+      '<span class="log-cell">' + row.hour + 'hr</span>' +
+      '<span class="log-cell hi" style="color:var(--red-mid);">' + Math.round(row.vol) + ' ml</span>' +
+      '<span class="log-cell">' + Math.round(row.cumVol) + ' ml</span>' +
+      '<span class="log-cell" style="text-align:right;">' +
+        '<button class="edit-btn" onclick="editBloodHour(' + i + ')">수정</button>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function editBloodHour(idx) {
+  const rows = document.querySelectorAll('#blood-log .log-row');
+  if (!rows[idx]) return;
+  // cancel existing
+  if (document.querySelector('#blood-log .editing')) renderBloodLog();
+  const row = document.querySelectorAll('#blood-log .log-row')[idx];
+  row.classList.add('editing');
+  const log = blood.logs[idx];
+  const cells = row.querySelectorAll('.log-cell');
+  cells[1].innerHTML = '<div class="edit-inline"><input id="blood-edit-' + idx + '" type="number" value="' + Math.round(log.vol) + '" min="0" inputmode="decimal"><span style="font-size:11px;color:var(--text2)">ml</span></div>';
+  cells[2].textContent = '';
+  cells[3].innerHTML = '<button class="save-edit-btn" style="background:var(--red-mid);" onclick="saveBloodEdit(' + idx + ')">저장</button>';
+  const inp = document.getElementById('blood-edit-' + idx);
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function saveBloodEdit(idx) {
+  const inp = document.getElementById('blood-edit-' + idx);
+  if (!inp) return;
+  const val = parseFloat(inp.value);
+  if (isNaN(val) || val < 0) { showToast('올바른 값을 입력해 주세요.'); inp.focus(); return; }
+  blood.logs[idx].vol = val;
+  // recalc cumVol from idx
+  for (let i = idx; i < blood.logs.length; i++) {
+    blood.logs[i].cumVol = (i === 0 ? 0 : blood.logs[i - 1].cumVol) + blood.logs[i].vol;
+  }
+  renderBloodLog();
+  updateBloodStatus();
+}
+
+function updateBloodStatus() {
+  const total = blood.logs.length > 0 ? blood.logs[blood.logs.length - 1].cumVol : 0;
+  const count = blood.logs.length;
+  document.getElementById('blood-act-count').innerHTML = count + '<span class="su">hr</span>';
+  document.getElementById('blood-act-total').innerHTML = Math.round(total) + '<span class="su">ml</span>';
+  document.getElementById('blood-sum-val').innerHTML   = Math.round(total) + '<span class="sc-unit">ml</span>';
+  document.querySelector('.tab[data-tab="blood"]').classList.toggle('has-items', count > 0);
+}
+
+function finishBlood() {
+  showConfirm(
+    blood.logs.length === 0
+      ? '기록이 없습니다.\n그래도 종료하시겠습니까?'
+      : '수술을 종료하고\n기록을 저장할까요?',
+    doFinishBlood
+  );
+}
+
+function doFinishBlood() {
+  if (blood.logs.length > 0) {
+    const now = new Date();
+    const savedAt = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + '.' + String(now.getDate()).padStart(2,'0') + ' ' + now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const total = blood.logs[blood.logs.length - 1].cumVol;
+    resultRecords.push({
+      type: 'blood',
+      name: blood.name,
+      logs: blood.logs.slice(),
+      total: Math.round(total),
+      savedAt: savedAt
+    });
+    renderResultPage();
+    document.querySelector('.tab[data-tab="result"]').classList.add('has-items');
+  }
+
+  blood = { active: false, name: '', logs: [] };
+  document.getElementById('blood-setup-name').value = '';
+  document.getElementById('blood-active').style.display = 'none';
+  document.getElementById('blood-setup').style.display  = '';
+  document.querySelector('.tab[data-tab="blood"]').classList.remove('surgery-on');
+  document.querySelector('.tab[data-tab="blood"]').classList.remove('has-items');
+
+  showCompletionPopup();
+}
+
+function showToast(msg) {
+  const old = document.getElementById('toast-el');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'toast-el';
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+16px);left:50%;transform:translateX(-50%);background:#0D2D45;color:#fff;font-size:13px;font-weight:500;padding:10px 18px;border-radius:20px;z-index:9998;white-space:nowrap;pointer-events:none;';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+</script>
+</body>
+</html>
