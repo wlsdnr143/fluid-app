@@ -228,7 +228,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <div class="act-card">
         <div class="sbar" id="fluid-sbar"></div>
         <div class="hr-entry">
-          <div class="hr-badge" id="fluid-hr-badge">1시간 후</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div class="hr-badge" id="fluid-hr-badge" style="margin-bottom:0;">1시간 후</div>
+            <button onclick="addLineInSurgery()" style="display:flex;align-items:center;gap:4px;background:var(--s2);border:1.5px solid var(--bd);border-radius:20px;color:var(--tx2);font-size:12px;font-weight:500;font-family:inherit;padding:5px 11px;cursor:pointer;">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+              라인 추가
+            </button>
+          </div>
           <div class="line-inputs" id="fluid-line-inputs"></div>
           <button class="rec-btn" onclick="recordHour()">기록</button>
         </div>
@@ -468,6 +474,83 @@ function renderActiveStatusBar() {
     '<div class="sb-item"><div class="sb-sl">수술명</div><div class="sb-sv" style="font-size:12px;">' + surgery.name + '</div></div>' +
     '<div class="sb-item"><div class="sb-sl">라인 수</div><div class="sb-sv">' + n + '<span class="sb-su">개</span></div></div>' +
     '<div class="sb-item"><div class="sb-sl">총 시작량</div><div class="sb-sv">' + totalStart + '<span class="sb-su">ml</span></div></div>';
+}
+
+function addLineInSurgery() {
+  if (surgery.lines.length >= 10) { showToast('최대 10개 라인까지 추가 가능합니다.'); return; }
+  showAddLineModal();
+}
+
+function showAddLineModal() {
+  var old = document.getElementById('edit-modal');
+  if (old) old.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'edit-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:320px;overflow:hidden;">' +
+      '<div style="padding:16px 18px 12px;border-bottom:1px solid var(--bd);font-size:14px;font-weight:600;color:var(--tx);">라인 추가</div>' +
+      '<div style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:5px;">종류</div>' +
+            '<select id="new-line-type" style="width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-size:14px;font-weight:600;font-family:inherit;padding:8px 6px;outline:none;">' +
+              '<option value="P/S">P/S</option>' +
+              '<option value="Vol">Vol</option>' +
+            '</select>' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:5px;">총량</div>' +
+            '<select id="new-line-vol" style="width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-size:14px;font-weight:600;font-family:inherit;padding:8px 6px;outline:none;">' +
+              '<option value="1000">1000 ml</option>' +
+              '<option value="500">500 ml</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:5px;">Loss량 (없으면 0)</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<input type="number" id="new-line-loss" value="" placeholder="0" min="0" inputmode="decimal" style="flex:1;background:var(--s2);border:1.5px solid var(--bd);border-radius:var(--rs);color:var(--tx);font-size:16px;font-weight:600;font-family:\'IBM Plex Mono\',monospace;text-align:center;padding:8px 6px;outline:none;">' +
+            '<span style="font-size:13px;color:var(--tx2);">ml</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--bd);">' +
+        '<button onclick="document.getElementById(\'edit-modal\').remove()" style="padding:13px;font-size:14px;font-family:inherit;background:#fff;border:none;border-right:1px solid var(--bd);color:var(--tx2);cursor:pointer;">취소</button>' +
+        '<button onclick="confirmAddLine()" style="padding:13px;font-size:14px;font-weight:600;font-family:inherit;background:#fff;border:none;color:var(--blue);cursor:pointer;">추가</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('new-line-loss').focus();
+}
+
+function confirmAddLine() {
+  var type = document.getElementById('new-line-type').value;
+  var vol  = parseInt(document.getElementById('new-line-vol').value);
+  var loss = parseFloat(document.getElementById('new-line-loss').value) || 0;
+  if (loss >= vol) { showToast('Loss량이 총량 이상일 수 없습니다.'); return; }
+  var startAmt = vol - loss;
+  var newLine = { type: type, vol: vol, loss: loss, startAmt: startAmt };
+
+  // Add new line to surgery
+  surgery.lines.push(newLine);
+  var newIdx = surgery.lines.length - 1;
+
+  // Backfill existing logs: new line was "fully remaining" (startAmt) in all previous hours → used=0
+  surgery.logs.forEach(function(log) {
+    log.remains.push(startAmt);
+    log.useds.push(0);
+    log.cumUseds.push(0);
+    // totalUsed and cumTotal unchanged (used 0)
+  });
+
+  document.getElementById('edit-modal').remove();
+  renderActiveStatusBar();
+  renderLineInputs();
+  renderFluidLogHeader();
+  renderFluidLog();
+  renderFluidSummary();
+  showToast('라인 ' + (newIdx + 1) + ' 추가되었습니다.');
 }
 
 function renderHrBadge() {
